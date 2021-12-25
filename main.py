@@ -1,6 +1,7 @@
 from aiohttp import web
-import json
+from requests import get
 
+from config import OW_URL, OW_API_KEY
 import logging
 
 logging.basicConfig(level=logging.INFO,
@@ -11,20 +12,28 @@ routes = web.RouteTableDef()
 
 @routes.get('/')
 async def index(request):
-    data = await request.json()
+    return web.Response(text="It's work!")
 
-    from pprint import pprint
-    pprint(data)
 
-    logger.info("data!")
+@routes.get('/weather')
+async def index(request):
+    country_code = request.rel_url.query['country_code']
+    city = request.rel_url.query['city']
 
-    answer = {"temp": -20}
-    return web.json_response(answer)
+    logger.info(f"city is {city}")
 
+    response = get(f"{OW_URL}?q={city}&appid={OW_API_KEY}")
+    logger.info(response.json())
+#    answer = {"country_code": country_code,
+#              "city": city}
+#    return web.json_response(answer)
+
+    return web.json_response(response.json())
 
 if __name__ == '__main__':
     app = web.Application()
     app.add_routes(routes)
+
     web.run_app(app, port=7890, host='127.0.0.1')
 
 
