@@ -2,7 +2,7 @@ from requests import get
 
 from config import API_URL
 
-example = "weather?country_code=RU&city=Moscow&date=<+/-5 дней>T12:00"
+example = "weather?country_code=RU&city=Moscow&date=<+/-5 дней>T12:00&cnt=5"
 
 def test_empty():
     response = get(f'{API_URL}/')
