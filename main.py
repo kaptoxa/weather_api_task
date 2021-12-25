@@ -3,6 +3,7 @@ from requests import get
 
 from data import db
 from data.__all_models import SchemaWeather, Weather
+from marshmallow import ValidationError
 
 from config import OW_URL, OW_API_KEY
 import logging
@@ -15,7 +16,7 @@ logger = logging.getLogger(__name__)
 routes = web.RouteTableDef()
 
 
-weather_schema = SchemaWeather()
+weather_schema = SchemaWeather(only=("city", "date", "temp", "wind"))
 
 @routes.get('/')
 async def index(request):
@@ -25,32 +26,34 @@ async def index(request):
 @routes.get('/weather')
 async def index(request):
     city = request.rel_url.query['city']
-    logger.info(f"city is {city}")
+    country = request.rel_url.query['country_code']
     today = datetime.datetime.now().date()
+    logger.info(f"city is {city}, date is {today}")
 
     session = db.create_session()
-    short = session.query(Weather).filter(Weather.city == city).filter(Weather.date == today).first()
-    if short:
-        short.jumps_count += 1
+    weather = session.query(Weather).filter(Weather.city == city).filter(Weather.date == today).first()
+    if weather:
+        weather.jumps_count += 1
         session.commit()
-
-        result = {'temp': Weather.temp, 'wind': Weather.wind}
-        logger.info(f"old result is {result}")
-
-        return web.json_response(result)
+        return web.json_response(weather_schema.dump(weather))
     else:
-        response = get(f"{OW_URL}?q={city}&appid={OW_API_KEY}")
-        data = response.json()
-        temp = data['main']['temp']
-        wind = data['wind']['speed']
+        response = get(f"{OW_URL}?q={city}&lang={country.lower()}&units=metric&appid={OW_API_KEY}")
+        data = {'city': city}
+        forecast = response.json()
+        try:
+            data['temperature'] = forecast['main']['temp']
+            data['wind speed'] = forecast['wind']['speed']
+        except KeyError:
+            return web.Response(text='Sorry, something is broken...')
 
-        session.add(weather_schema.load({'city': city, 'date': today}))
+        try:
+            new_weather = weather_schema.load(data)
+        except ValidationError as error:
+            return web.json_response(error.messages)
+
+        session.add(new_weather)
         session.commit()
-
-        result = {'temp': temp, 'wind': wind}
-        logger.info(f"new result is {result}")
-
-        return web.json_response(result)
+        return web.json_response(weather_schema.dump(new_weather))
 
 
 

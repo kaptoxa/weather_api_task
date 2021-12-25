@@ -12,7 +12,7 @@ class Weather(SqlAlchemyBase):
 
     id = sa.Column(sa.Integer, primary_key=True, autoincrement=True)
     city = sa.Column(sa.String(length=255))
-    date = sa.Column(sa.Date)
+    date = sa.Column(sa.Date, default=datetime.datetime.now().date())
 
     temp = sa.Column(sa.Float)
     wind = sa.Column(sa.Float)
@@ -30,11 +30,11 @@ class Weather(SqlAlchemyBase):
 
 class SchemaWeather(Schema):
     id = fields.Int(dump_only=True)
-    city = fields.Str(data_key='city')
-    date = fields.Date(date_key='date')
+    city = fields.Str()
+    date = fields.Date()
 
-    temp = fields.Float(date_key='temp')
-    wind = fields.Float(date_key='wind')
+    temp = fields.Float(data_key='temperature')
+    wind = fields.Float(data_key='wind speed')
 
     jumps_count = fields.Int(data_key='count')
 
@@ -43,16 +43,12 @@ class SchemaWeather(Schema):
         city = data.get('city')
         if not city:
             data['city'] = 'Moscow'
-
-        date = data.get('date')
-        if not date:
-            data['date'] = datetime.datetime.now().date()
             # raise exception...
         return data
 
     @post_load
-    def make_date(self, data, **kwargs):
-        return Weather(city=data['city'],
-                       date=data['date'],
-                       temp=data['temp'],
-                       wind=data['wind'])
+    def make_weather(self, data, **kwargs):
+        return Weather(**data)
+
+    class Meta:
+        ordered = True
